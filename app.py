@@ -208,7 +208,7 @@ def generate_pest_recommendations(crop, pest_severity_index, likely_pest_species
         "   * [Tip 1] (e.g., Crop rotation, Sanitation, Proper spacing)\n"
         "   * [Tip 2] (e.g., Introduce beneficial insects, Optimize irrigation, Soil health)\n"
         "   * [Tip 3] (e.g., Regular monitoring, Use resistant varieties, Timely weeding)\n"
-        "4. Keep the entire response extremely concise: between 8-12 lines in total (including headers and bullet points)."
+        "4. Keep the entire response extremely concise: between 5-9 lines in total (including headers and bullet points)."
     )
 
     try:
