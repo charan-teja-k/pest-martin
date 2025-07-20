@@ -11,24 +11,12 @@ import re
 from dotenv import load_dotenv
 import requests
 import random # For simulating ML predictions and average rainfall
-from openai import OpenAI # Add this import for OpenAI
-import os
+from openai import OpenAI
 
-port = int(os.environ.get("PORT", 5000))  # fallback to 5000 for local dev
-app.run(host="0.0.0.0", port=port)
-
+# Load environment variables at the very beginning
 load_dotenv()
 
 app = Flask(__name__)
-
-# --- Mail Configuration ---
-app.config['MAIL_DEFAULT_SENDER'] = 'PixelPirates.AST@gmail.com'
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
-app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
-mail = Mail(app)
 
 # --- Configuration ---
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'Jaibalayya')
@@ -36,11 +24,20 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_recycle': 280}
 
+# --- Mail Configuration ---
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_USERNAME', 'PixelPirates.AST@gmail.com') # Use env var or fallback
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
+app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
+
 # --- Initialize extensions ---
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'signin'
 s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+mail = Mail(app) # Initialize Mail after app config
 
 # API keys for external services
 OPENWEATHER_API_KEY = os.getenv('OPENWEATHER_API_KEY')
@@ -48,17 +45,17 @@ GEOAPIFY_API_KEY = os.getenv('GEOAPIFY_API_KEY')
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") # For OpenRouter/OpenAI
 
 # Initialize OpenAI client for OpenRouter
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    base_url="https://openrouter.ai/api/v1"
-)
+# Ensure OPENAI_API_KEY is available before initializing client
+if OPENAI_API_KEY:
+    client = OpenAI(
+        api_key=OPENAI_API_KEY,
+        base_url="https://openrouter.ai/api/v1"
+    )
+else:
+    print("WARNING: OPENAI_API_KEY is not set. AI recommendations will not work.")
+    client = None # Set client to None if API key is missing
 
-# --- Removed ML Model Loading (as per your request for simulation only) ---
-# import pickle # Not needed for simulation
-# import numpy as np # Not needed for simulation
-# import pandas as pd # Not needed for simulation
-
-# ml_model = None # No longer loaded or used
+# --- Helper functions for external API calls ---
 
 def get_weather_data(latitude, longitude):
     """Get weather using latitude/longitude."""
@@ -66,13 +63,15 @@ def get_weather_data(latitude, longitude):
     weather_error = None
     owm_location_name = None
 
+    if not OPENWEATHER_API_KEY:
+        return None, "OpenWeatherMap API Key not configured.", None
     if latitude is None or longitude is None:
         return None, "Latitude and Longitude are required for weather data.", None
 
     try:
         url = f"https://api.openweathermap.org/data/2.5/weather?lat={latitude}&lon={longitude}&appid={OPENWEATHER_API_KEY}&units=metric"
         resp = requests.get(url)
-        resp.raise_for_status()
+        resp.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
         weather_data = resp.json()
         if weather_data and 'name' in weather_data:
             owm_location_name = weather_data['name']
@@ -99,7 +98,6 @@ def get_geoapify_location_name(latitude, longitude):
     if latitude is None or longitude is None:
         return None, None, None, "Latitude and Longitude are required for Geoapify Geocoding."
 
-
     try:
         url = f"https://api.geoapify.com/v1/geocode/reverse?lat={latitude}&lon={longitude}&apiKey={GEOAPIFY_API_KEY}"
         resp = requests.get(url)
@@ -119,6 +117,7 @@ def get_geoapify_location_name(latitude, longitude):
             if 'state' in properties and properties['state']:
                 state = properties['state']
             
+            # Geoapify might use 'county' or 'district' for what we consider a district
             if 'county' in properties and properties['county']:
                 district = properties['county']
             elif 'district' in properties and properties['district']:
@@ -163,11 +162,13 @@ def predict_pest_risk(crop, temperature_c, humidity_percent, state, district, so
         "Soyabean": ["Girdle Beetle", "Yellow Mosaic Virus"],
     }
     
+    # Ensure avg_rainfall_mm_per_month has a value for simulation
     if avg_rainfall_mm_per_month is None:
         avg_rainfall_mm_per_month = random.uniform(50, 250)
 
     severity = random.randint(1, 5) # Base random severity
 
+    # Simulate some logic based on inputs
     if temperature_c is not None and humidity_percent is not None:
         if temperature_c > 28 and humidity_percent > 75:
             severity += random.randint(1, 3)
@@ -188,9 +189,10 @@ def generate_pest_recommendations(crop, pest_severity_index, likely_pest_species
     Generates low-chemical pesticide recommendations and crop management tips
     using an LLM based on predicted pest and severity.
     """
-    if not os.getenv("OPENAI_API_KEY"):
-        print("DEBUG AI: OPENAI_API_KEY is not set. Cannot generate AI recommendations.") # DEBUG
-        return "AI recommendations are not available (API key missing)."
+    # Check if the client object was successfully initialized
+    if client is None:
+        print("DEBUG AI: OpenAI client not initialized. Cannot generate AI recommendations.")
+        return "AI recommendations are not available (API key missing or client initialization failed)."
 
     prompt = (
         f"Based on the occurrence of '{likely_pest_species}' on '{crop}' with a severity index of {pest_severity_index}/10, "
@@ -248,13 +250,6 @@ class User(UserMixin, db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-@app.before_request
-def create_tables_once():
-    if not hasattr(app, 'db_initialized'):
-        with app.app_context():
-            db.create_all()
-        app.db_initialized = True
-
 # --- Authentication Routes ---
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -262,8 +257,9 @@ def signup():
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '').strip()
 
-        if not email.endswith('@gmail.com') or not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-            flash('Please enter a valid Gmail address.', 'danger')
+        # Basic email format validation and Gmail domain check
+        if not re.match(r"^[a-zA-Z0-9._%+-]+@gmail\.com$", email):
+            flash('Please enter a valid Gmail address (e.g., example@gmail.com).', 'danger')
             return redirect(url_for('signup'))
 
         if not isinstance(password, str) or len(password) < 8:
@@ -289,12 +285,14 @@ def signin():
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '').strip()
 
-        if not email.endswith('@gmail.com') or not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+        # Basic email format validation and Gmail domain check
+        if not re.match(r"^[a-zA-Z0-9._%+-]+@gmail\.com$", email):
             flash('Please enter a valid Gmail address.', 'danger')
             return redirect(url_for('signin'))
 
+        # Password length check for user feedback (actual check is check_password_hash)
         if len(password) < 8:
-            flash('Invalid email or password.', 'danger')
+            flash('Invalid email or password.', 'danger') # Generic message for security
             return redirect(url_for('signin'))
 
         user = User.query.filter_by(email=email).first()
@@ -319,13 +317,14 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
+    # This route is just for demonstration, you might want to integrate it into your main app structure
     return f"Hello, {current_user.email}! <a href='/logout'>Logout</a> <a href='/change_password'>Change Password</a>"
 
 # --- Password Reset Routes ---
 @app.route('/forgot_password', methods=['GET', 'POST'])
 def forgot_password():
     if request.method == 'POST':
-        email = request.form['email']
+        email = request.form['email'].strip()
         user = User.query.filter_by(email=email).first()
         if user:
             token = s.dumps(user.email, salt='password-reset-salt')
@@ -347,7 +346,6 @@ If you did not request this password reset, you can ignore this email.
 Thanks,
 Your feedback analyser Team (CHARAN)
 """
-
             try:
                 mail.send(msg)
                 flash('Password reset link has been sent to your email.', 'info')
@@ -362,14 +360,15 @@ Your feedback analyser Team (CHARAN)
 @app.route('/reset_password/<token>', methods=['GET', 'POST'])
 def reset_password(token):
     try:
-        email = s.loads(token, salt='password-reset-salt', max_age=3600)
+        email = s.loads(token, salt='password-reset-salt', max_age=3600) # Token valid for 1 hour
     except Exception:
         flash('The reset link is invalid or has expired.', 'danger')
         return redirect(url_for('signin'))
+
     if request.method == 'POST':
         user = User.query.filter_by(email=email).first()
         if user:
-            password = request.form['password']
+            password = request.form['password'].strip()
             if len(password) < 8:
                 flash('Password must be at least 8 characters long.', 'danger')
                 return render_template('reset_password.html', token=token)
@@ -378,22 +377,24 @@ def reset_password(token):
             flash('Your password has been updated.', 'success')
             return redirect(url_for('signin'))
         else:
-            flash('User not found.', 'danger')
+            flash('User not found.', 'danger') # Should not happen if token is valid
             return redirect(url_for('signin'))
-    return render_template('reset_password.html')
+    return render_template('reset_password.html', token=token)
 
 @app.route('/change_password', methods=['GET', 'POST'])
 @login_required
 def change_password():
     if request.method == 'POST':
-        old_password = request.form['old_password']
-        new_password = request.form['new_password']
+        old_password = request.form['old_password'].strip()
+        new_password = request.form['new_password'].strip()
+
         if not current_user.check_password(old_password):
             flash('Old password is incorrect.', 'danger')
             return redirect(url_for('change_password'))
         if len(new_password) < 8:
             flash('New password must be at least 8 characters long.', 'danger')
             return redirect(url_for('change_password'))
+        
         current_user.set_password(new_password)
         db.session.commit()
         flash('Password changed successfully. Please sign in again.', 'success')
@@ -404,6 +405,7 @@ def change_password():
 @app.route('/', methods=['GET'])
 @login_required
 def index():
+    # This route is the main entry point after login
     return render_template('index.html')
 
 @app.route('/predict', methods=['POST'])
@@ -416,62 +418,75 @@ def predict():
 
     latitude = None
     longitude = None
-    error_message = None
-
+    
+    # Try converting latitude and longitude to float
     if latitude_str and longitude_str:
         try:
             latitude = float(latitude_str)
             longitude = float(longitude_str)
         except ValueError:
-            error_message = "Invalid Latitude or Longitude values. Please ensure location is detected."
+            flash("Invalid Latitude or Longitude values. Please ensure location is detected correctly.", 'danger')
+            return redirect(url_for('index'))
     else:
-        error_message = "Location not detected. Please click 'Detect My Location' and allow access."
-
-    if error_message:
-        flash(error_message, 'danger')
+        flash("Location not detected. Please click 'Detect My Location' and allow access.", 'danger')
         return redirect(url_for('index'))
 
+    # Fetch weather data
     weather_data, weather_error, owm_location_name = get_weather_data(latitude, longitude)
-    geoapify_location_name, state, district, geoapify_error = get_geoapify_location_name(latitude, longitude)
+    if weather_error:
+        flash(f"Weather data error: {weather_error}", 'danger')
+        return redirect(url_for('index'))
 
+    # Extract temperature and humidity
     temperature_c = weather_data['main']['temp'] if weather_data and 'main' in weather_data else None
     humidity_percent = weather_data['main']['humidity'] if weather_data and 'main' in weather_data else None
     
-    avg_rainfall_mm_per_month_for_ml = random.uniform(50, 250) # Simulated for ML input
+    # Fetch Geoapify location data
+    geoapify_location_name, state, district, geoapify_error = get_geoapify_location_name(latitude, longitude)
+    if geoapify_error:
+        flash(f"Location details error: {geoapify_error}", 'danger')
+        return redirect(url_for('index'))
+
+    # Simulate average rainfall for ML input
+    avg_rainfall_mm_per_month_for_ml = random.uniform(50, 250) 
 
     pest_severity_index = "N/A"
     likely_pest_species = "Cannot predict due to missing data."
     ai_recommendations = "AI recommendations could not be generated."
 
-    if temperature_c is not None and humidity_percent is not None and state and district and soil_type:
+    # Check if all necessary data for ML prediction is available
+    missing_data_for_ml = []
+    if not crop: missing_data_for_ml.append("Crop")
+    if temperature_c is None: missing_data_for_ml.append("Temperature")
+    if humidity_percent is None: missing_data_for_ml.append("Humidity")
+    if not state: missing_data_for_ml.append("State")
+    if not district: missing_data_for_ml.append("District")
+    if not soil_type: missing_data_for_ml.append("Soil Type")
+    # avg_rainfall_mm_per_month_for_ml is always simulated, so no need to check it here
+
+    if not missing_data_for_ml: # If list is empty, all data is present
         # Call the simulated ML prediction function
         pest_severity_index, likely_pest_species = predict_pest_risk(
             crop, temperature_c, humidity_percent, state, district, soil_type,
-            avg_rainfall_mm_per_month_for_ml # Pass simulated average rainfall
+            avg_rainfall_mm_per_month_for_ml
         )
+        
         # Generate AI recommendations ONLY if ML prediction was successful and valid
         if (pest_severity_index != "N/A" and 
             "Cannot predict" not in likely_pest_species and 
+            "General Pest" not in likely_pest_species and # Exclude generic fallback
             "Unknown Pest" not in likely_pest_species):
             ai_recommendations = generate_pest_recommendations(crop, pest_severity_index, likely_pest_species)
+        else:
+            ai_recommendations = "AI recommendations could not be generated based on the current prediction."
     else:
-        # Provide more specific error message if critical data for ML is missing
-        missing_data = []
-        if not crop: missing_data.append("Crop")
-        if temperature_c is None: missing_data.append("Temperature")
-        if humidity_percent is None: missing_data.append("Humidity")
-        if not state: missing_data.append("State")
-        if not district: missing_data.append("District")
-        if not soil_type: missing_data.append("Soil Type")
-        if avg_rainfall_mm_per_month_for_ml is None: missing_data.append("Average Rainfall")
-        
-        flash(f"Missing data for full pest prediction: {', '.join(missing_data)}. Please ensure all inputs are valid and location is detected.", 'danger')
+        flash(f"Missing data for full pest prediction: {', '.join(missing_data_for_ml)}. Please ensure all inputs are valid and location is detected.", 'danger')
         return redirect(url_for('index'))
 
     # --- DEBUGGING PRINTS (Optional, you can remove these in production) ---
     print(f"Final Latitude: {latitude}, Final Longitude: {longitude}")
-    print(f"Selected Soil Type: {soil_type}")
-    print(f"Weather API Response (weather_data): {weather_data}")
+    print(f"Selected Crop: {crop}, Soil Type: {soil_type}")
+    print(f"Weather Data: {weather_data}")
     print(f"OpenWeatherMap Location Name: {owm_location_name}")
     print(f"Weather Error: {weather_error}")
     print(f"Geoapify Location Name (Reverse Geocode): {geoapify_location_name}")
@@ -479,7 +494,7 @@ def predict():
     print(f"Detected District: {district}")
     print(f"Geoapify Error: {geoapify_error}")
     print(f"ML Prediction: Severity={pest_severity_index}, Pest={likely_pest_species}")
-    print(f"AI Recommendations: {ai_recommendations}") # Print AI recommendations
+    print(f"AI Recommendations: {ai_recommendations}")
     # --- END DEBUGGING PRINTS ---
 
     return render_template(
@@ -501,4 +516,10 @@ def predict():
     )
 
 if __name__ == '__main__':
-    app.run(debug=False)
+    # Create database tables within the application context
+    with app.app_context():
+        db.create_all()
+    
+    # Define port from environment or fallback
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True) # Set debug=True for development
