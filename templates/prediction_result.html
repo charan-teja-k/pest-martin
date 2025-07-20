@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pest Forecast Result</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            /* --- BACKGROUND IMAGE/GIF (Copied from index.html) --- */
+            /* IMPORTANT: Ensure '/static/back.jpg' is the correct path to your GIF/image */
+            background: url('/static/back.jpg') center/cover no-repeat fixed;
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+            position: relative;
+            z-index: 0;
+        }
+
+        /* Overlay for background blur and transparency (Copied from index.html) */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: inherit; /* Inherit the background image */
+            filter: blur(5px); /* Apply blur directly to this overlay (adjust 5px for intensity) */
+            z-index: -1; /* Place behind actual content */
+            transform: scale(1.02); /* Slightly scale to hide blur edges from blur effect */
+            opacity: 0.7; /* Make the blurred background 30% transparent (70% opaque) */
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            /* --- MAIN CONTAINER TRANSPARENCY (Copied from index.html) --- */
+            background: rgba(255, 255, 255, 0.85); /* 15% transparent white background for the whole container */
+            backdrop-filter: blur(5px); /* Blurs content BEHIND this container, blending with blurred background */
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative; /* IMPORTANT: Needed for absolute positioning of profile dropdown */
+            z-index: 1;
+        }
+
+        .header {
+            /* --- HEADER DARKER GREEN (Copied from index.html) --- */
+            background: linear-gradient(135deg, #1e461a 0%, #316a3a 100%); /* Darker green gradient */
+            padding: 40px 30px;
+            text-align: center;
+            color: white; /* Text remains white */
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1.5" fill="rgba(255,255,255,0.08)"/><circle cx="50" cy="10" r="1" fill="rgba(255,255,255,0.06)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            opacity: 0.3; /* Opacity of the grain pattern within the header */
+            animation: float 20s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+            color: white; /* Ensure header text is white */
+        }
+
+        /* Applied form-container styling to result-content-container */
+        .result-content-container {
+            padding: 40px 30px;
+            background: rgba(255, 255, 255, 0.75); /* 25% transparent white for the content area */
+        }
+
+        h2 { /* Default styling for h2 if not within the .header */
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        /* --- REFINED .result-section STYLING (Copied from index.html) --- */
+        .result-section {
+            margin-bottom: 18px; /* Slightly more space between sections */
+            padding: 15px 20px; /* More padding */
+            border-radius: 12px; /* Larger radius for softer look */
+            background-color: transparent; /* Transparent background */
+            border: none; /* No border for a unified look */
+            box-shadow: none; /* No individual shadow */
+            color: #333; /* Ensure text is readable */
+            text-align: left; /* Align text within section */
+            font-size: 1rem;
+        }
+        /* Status messages will have a background and border */
+        .result-section.error-message,
+        .result-section.success-message {
+            padding: 12px 20px;
+            background: rgba(45, 90, 39, 0.08); /* Very light green tint for success message */
+            border: 1px solid rgba(45, 90, 39, 0.15); /* Subtle green border */
+            color: #1e461a; /* Dark green text */
+            font-weight: 600;
+        }
+        .result-section.error-message {
+            background: rgba(220, 38, 38, 0.08); /* Very light red tint for error message */
+            border: 1px solid rgba(220, 38, 38, 0.15); /* Subtle red border */
+            color: #dc2626; /* Dark red text */
+        }
+        /* Ensure strong tags are styled consistently */
+        .result-section strong {
+            display: inline-block;
+            width: 150px;
+            font-weight: 600;
+            color: #2d3748; /* Darker color for labels */
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .prediction-highlight {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #254820; /* Darker green for prediction highlights */
+        }
+        .severity-high {
+            color: #dc3545; /* Red for high severity */
+        }
+        .severity-medium {
+            color: #ffc107; /* Yellow for medium severity */
+        }
+        .severity-low {
+            color: #4a7c59; /* Green for low severity - from old header end */
+        }
+        
+        /* Go back link styled as a button */
+        .go-back-link {
+            display: inline-block;
+            background: linear-gradient(135deg, #1e461a 0%, #316a3a 100%); /* Darker green gradient */
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(30, 70, 26, 0.3); /* Darker shadow */
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-decoration: none; /* Remove underline for links */
+            margin-top: 20px;
+        }
+
+        .go-back-link:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(30, 70, 26, 0.4); /* Darker hover shadow */
+            background: linear-gradient(135deg, #142f11 0%, #1e461a 100%); /* Even darker hover gradient */
+        }
+
+        .go-back-link:active {
+            transform: translateY(-1px);
+        }
+
+        /* Custom scrollbar (Copied from index.html) */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #254820; /* Darker green */
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #1e461a; /* Even darker green on hover */
+        }
+
+        /* Responsive Design (Copied from index.html) */
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 16px;
+            }
+            
+            .header {
+                padding: 30px 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .result-content-container { /* Adjusted for this page */
+                padding: 30px 20px;
+            }
+            .result-section strong {
+                width: 100%; /* Full width for labels on small screens */
+                margin-bottom: 5px;
+            }
+            .result-section p {
+                text-align: left; /* Align text within result sections */
+            }
+            .profile-dropdown-container {
+                top: 10px;
+                right: 10px;
+            }
+            .profile-icon-btn {
+                font-size: 2rem;
+            }
+        }
+
+        /* Loading animation (Copied from index.html) */
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--loading-color, #d97706);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* --- PROFILE DROPDOWN STYLES (Copied from index.html) --- */
+        .profile-dropdown-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .profile-icon-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 2.5rem;
+            color: white; /* Icon color */
+            transition: color 0.3s ease;
+            padding: 0;
+        }
+
+        .profile-icon-btn:hover {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .dropdown-menu {
+            display: none; /* Hidden by default */
+            position: absolute;
+            top: 100%; /* Position below the icon */
+            right: 0;
+            background-color: rgba(255, 255, 255, 0.9); /* Slightly transparent white */
+            backdrop-filter: blur(10px); /* Blur effect */
+            border-radius: 8px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            min-width: 160px;
+            z-index: 1001; /* Above the icon container */
+            padding: 10px 0;
+            text-align: left;
+        }
+
+        .dropdown-menu a {
+            color: #333;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            font-size: 0.95rem;
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+
+        .dropdown-menu a:hover {
+            background-color: #f1f1f1;
+            color: #2d5a27; /* Darker green on hover */
+        }
+        /* --- END PROFILE DROPDOWN STYLES --- */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="profile-dropdown-container">
+            <button class="profile-icon-btn" title="User Options">
+                <i class="fas fa-user-circle"></i>
+            </button>
+            <div class="dropdown-menu">
+                <a href="{{ url_for('change_password') }}">Change Password</a>
+                <a href="{{ url_for('logout') }}">Logout</a>
+            </div>
+        </div>
+
+        <div class="header">
+            <h1><i class="fas fa-bug"></i> Pest Risk Forecast Result</h1>
+        </div>
+        
+        <div class="result-content-container">
+            {% if crop %}
+            <div class="result-section">
+                <strong>Crop Selected:</strong> {{ crop | capitalize }}
+            </div>
+            {% endif %}
+
+            {# Display location name from Geoapify #}
+            {% if geoapify_location_name %}
+            <div class="result-section success-message">
+                <strong>Detected Area:</strong> {{ geoapify_location_name }}
+            </div>
+            {% else %}
+            <div class="result-section error-message">
+                <strong>Detected Area:</strong> Not available or could not be determined.
+                {% if geoapify_error %}<br><small>Error: {{ geoapify_error }}</small>{% endif %}
+            </div>
+            {% endif %}
+
+            {# Display State and District #}
+            {% if state or district %}
+            <div class="result-section">
+                {% if state %}
+                <strong>State:</strong> {{ state | capitalize }}<br>
+                {% endif %}
+                {% if district %}
+                <strong>District:</strong> {{ district | capitalize }}
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% if latitude is not none and longitude is not none %}
+            <div class="result-section">
+                <strong>Provided Latitude:</strong> {{ latitude }}<br>
+                <strong>Provided Longitude:</strong> {{ longitude }}
+            </div>
+            {% endif %}
+
+            {% if soil_type %}
+            <div class="result-section">
+                <strong>Soil Type:</strong> {{ soil_type | capitalize }}
+            </div>
+            {% endif %}
+
+
+            {% if weather_error %}
+            <div class="result-section error-message">
+                <strong>Weather Error:</strong> {{ weather_error }}
+            </div>
+            {% elif weather_data %}
+            <div class="result-section">
+                <h3>Current Weather Conditions:</h3>
+                <p><strong>Temperature:</strong> {{ weather_data['main']['temp'] }} &deg;C</p>
+                <p><strong>Feels Like:</strong> {{ weather_data['main']['feels_like'] }} &deg;C</p>
+                <p><strong>Humidity:</strong> {{ weather_data['main']['humidity'] }}%</p>
+                <p><strong>Conditions:</strong> {{ weather_data['weather'][0]['description'] | capitalize }}</p>
+                <p><strong>Avg Rainfall :</strong> {{ avg_rainfall_mm_per_month }} mm/month</p>
+            </div>
+            {% else %}
+            <div class="result-section">
+                <p>No weather data available.</p>
+            </div>
+            {% endif %}
+
+            <div class="result-section">
+                <h3>Pest Risk Prediction:</h3>
+                {% if pest_severity_index is not none and pest_severity_index != "N/A" %}
+                    <p><strong>Severity Index:</strong> 
+                        <span class="prediction-highlight {% if pest_severity_index >= 7 %}severity-high{% elif pest_severity_index >= 4 %}severity-medium{% else %}severity-low{% endif %}">
+                            {{ pest_severity_index }} / 10
+                        </span>
+                    </p>
+                    <p><strong>Likely Pest:</strong> <span class="prediction-highlight">{{ likely_pest_species }}</span></p>
+                {% else %}
+                    <p>{{ likely_pest_species }}</p>
+                {% endif %}
+                <p style="font-size: 0.9em; color: #666;"></p>
+            </div>
+
+            {# --- NEW: AI Recommendations Section --- #}
+            {% if ai_recommendations %}
+            <div class="result-section">
+                <h3>AI Recommendations:</h3>
+                <p style="white-space: pre-wrap;">{{ ai_recommendations | safe }}</p>
+                <p style="font-size: 0.8em; color: #666; margin-top: 5px;">(Generated by AI)</p>
+            </div>
+            {% endif %}
+            {# --- END NEW: AI Recommendations Section --- #}
+
+            <p style="text-align: center;">
+                <a href="{{ url_for('index') }}" class="go-back-link">Go back to input form</a>
+            </p>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Profile dropdown toggle logic (copied from index.html)
+            const profileIconBtn = document.querySelector('.profile-icon-btn');
+            const dropdownMenu = document.querySelector('.dropdown-menu');
+
+            if (profileIconBtn && dropdownMenu) {
+                profileIconBtn.addEventListener('click', function() {
+                    dropdownMenu.style.display = dropdownMenu.style.display === 'block' ? 'none' : 'block';
+                });
+
+                // Close the dropdown if the user clicks outside of it
+                window.addEventListener('click', function(event) {
+                    if (!profileIconBtn.contains(event.target) && !dropdownMenu.contains(event.target)) {
+                        dropdownMenu.style.display = 'none';
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

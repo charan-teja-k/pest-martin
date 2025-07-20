@@ -1,0 +1,8 @@
+flask
+flask_sqlalchemy
+flask_login
+flask_mail
+python-dotenv
+itsdangerous
+werkzeug
+pymysql

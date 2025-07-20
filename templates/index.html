@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pest Forecasting System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: url('/static/back.jpg') center/cover no-repeat fixed; /* Your background image/GIF */
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+            position: relative;
+            z-index: 0;
+        }
+
+        /* Overlay for background blur and transparency of the background image itself */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: inherit; /* Inherit the background image from body */
+            filter: blur(5px); /* Apply blur directly to this overlay (adjust 5px for intensity) */
+            z-index: -1; /* Place behind actual content */
+            transform: scale(1.02); /* Slightly scale to hide blur edges from blur effect */
+            opacity: 0.7; /* Make the blurred background 30% transparent (70% opaque) */
+        }
+
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            /* Main container transparency */
+            background: rgba(255, 255, 255, 0.85); /* 15% transparent white background for the whole container */
+            backdrop-filter: blur(5px); /* Blurs content BEHIND this container, blending with blurred background */
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative; /* IMPORTANT: Needed for absolute positioning of profile dropdown */
+            z-index: 1;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e461a 0%, #316a3a 100%); /* Darker green gradient */
+            padding: 40px 30px;
+            text-align: center;
+            color: white; /* Text remains white */
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1.5" fill="rgba(255,255,255,0.08)"/><circle cx="50" cy="10" r="1" fill="rgba(255,255,255,0.06)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            opacity: 0.3; /* Opacity of the grain pattern within the header */
+            animation: float 20s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            font-weight: 300;
+            position: relative;
+            z-index: 1;
+        }
+
+        .form-container {
+            padding: 40px 30px;
+            background: rgba(255, 255, 255, 0.75); /* Data entry division transparency */
+        }
+
+        .form-group {
+            margin-bottom: 28px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2d3748;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group label i {
+            color: #254820; /* Darker green for icons */
+            margin-right: 8px;
+            width: 16px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 16px 20px;
+            font-size: 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            background: #f8fafc;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #254820; /* Darker green for focus border */
+            box-shadow: 0 0 0 3px rgba(37, 72, 32, 0.1); /* Darker green shadow */
+            background: white;
+            transform: translateY(-2px);
+        }
+
+        select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23254820" stroke-width="2"><polyline points="6,9 12,15 18,9"></polyline></svg>'); /* Darker green arrow */
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            background-size: 20px;
+            padding-right: 50px;
+        }
+
+        .location-section {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 2px solid #0ea5e9; /* Still a light blue border - adjust if needed to green */
+            border-radius: 16px;
+            padding: 30px;
+            margin: 30px 0;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .location-section::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(14, 165, 233, 0.05) 0%, transparent 70%); /* Blue gradient inside */
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        .location-section h3 {
+            color: #0c4a6e; /* Dark blue text */
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .location-section h3 i {
+            color: #006B57; /* Darker teal/emerald for location icon */
+            margin-right: 10px;
+            font-size: 1.4rem;
+        }
+
+        .detect-btn {
+            background: linear-gradient(135deg, #008C73 0%, #006B57 100%); /* Darker teal/emerald gradient */
+            box-shadow: 0 4px 15px rgba(0, 140, 115, 0.3); /* Darker shadow */
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 1;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .detect-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 140, 115, 0.4); /* Darker hover shadow */
+            background: linear-gradient(135deg, #006B57 0%, #004D3F 100%); /* Even darker hover gradient */
+        }
+
+        .detect-btn:active {
+            transform: translateY(-1px);
+        }
+
+        .status-message {
+            margin-top: 15px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.95rem;
+            position: relative;
+            z-index: 1;
+            transition: all 0.3s ease;
+            display: none; /* Hidden by default, shown by JS */
+        }
+        .status-message.success {
+            background: #dcfce7; /* Light green background */
+            color: #166534; /* Dark green text */
+            border: 1px solid #bbf7d0;
+        }
+
+        .status-message.error {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        .status-message.loading {
+            background: #fef3c7;
+            color: #d97706;
+            border: 1px solid #fed7aa;
+        }
+
+        .location-hint {
+            margin-top: 15px;
+            color: #64748b;
+            font-size: 0.9rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .submit-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #1e461a 0%, #316a3a 100%); /* Darker green gradient */
+            box-shadow: 0 6px 20px rgba(30, 70, 26, 0.3); /* Darker shadow */
+            color: white;
+            border: none;
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 20px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(30, 70, 26, 0.4); /* Darker hover shadow */
+            background: linear-gradient(135deg, #142f11 0%, #1e461a 100%); /* Even darker hover gradient */
+        }
+
+        .submit-btn:active {
+            transform: translateY(-1px);
+        }
+
+        /* --- PROFILE DROPDOWN STYLES --- */
+        .profile-dropdown-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .profile-icon-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 2.5rem;
+            color: white; /* Icon color */
+            transition: color 0.3s ease;
+            padding: 0;
+        }
+
+        .profile-icon-btn:hover {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .dropdown-menu {
+            display: none; /* Hidden by default */
+            position: absolute;
+            top: 100%; /* Position below the icon */
+            right: 0;
+            background-color: rgba(255, 255, 255, 0.9); /* Slightly transparent white */
+            backdrop-filter: blur(10px); /* Blur effect */
+            border-radius: 8px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            min-width: 160px;
+            z-index: 1001; /* Above the icon container */
+            padding: 10px 0;
+            text-align: left;
+        }
+
+        .dropdown-menu a {
+            color: #333;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            font-size: 0.95rem;
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+
+        .dropdown-menu a:hover {
+            background-color: #f1f1f1;
+            color: #2d5a27; /* Darker green on hover */
+        }
+        /* --- END PROFILE DROPDOWN STYLES --- */
+
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 16px;
+            }
+            
+            .header {
+                padding: 30px 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .form-container {
+                padding: 30px 20px;
+            }
+            
+            .location-section {
+                padding: 20px;
+            }
+            .profile-dropdown-container {
+                top: 10px;
+                right: 10px;
+            }
+            .profile-icon-btn {
+                font-size: 2rem;
+            }
+        }
+
+        /* Loading animation */
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--loading-color, #d97706);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #254820; /* Darker green */
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #1e461a; /* Even darker green on hover */
+        }
+    </style>
+    <script>
+        function getLocation() {
+            const gpsStatus = document.getElementById("gps-status");
+            const latitudeInput = document.getElementById("latitude");
+            const longitudeInput = document.getElementById("longitude");
+            const detectBtn = document.querySelector('.detect-btn');
+            const submitBtn = document.querySelector('.submit-btn'); 
+
+            gpsStatus.style.display = 'block'; // Ensure status message is visible
+
+            gpsStatus.className = "status-message loading";
+            gpsStatus.innerHTML = '<span class="loading-spinner"></span>Detecting your location...';
+            
+            detectBtn.disabled = true; 
+            detectBtn.style.opacity = '0.7';
+
+            submitBtn.disabled = true; 
+            submitBtn.style.opacity = '0.7';
+                                
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    latitudeInput.value = position.coords.latitude;
+                    longitudeInput.value = position.coords.longitude;
+                    gpsStatus.className = "status-message success";
+                    gpsStatus.innerHTML = '<i class="fas fa-check-circle"></i> Location detected successfully!';
+                    
+                    detectBtn.disabled = false; 
+                    detectBtn.style.opacity = '1';
+                    
+                    submitBtn.disabled = false; 
+                    submitBtn.style.opacity = '1';
+
+                }, function(error) {
+                    let errorMessage = "Error detecting location.";
+                    let icon = '<i class="fas fa-exclamation-triangle"></i>';
+                    
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMessage = "Permission denied. Please allow location access.";
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMessage = "Location information unavailable.";
+                            break;
+                        case error.TIMEOUT:
+                            errorMessage = "The request to get user location timed out.";
+                            break;
+                        case error.UNKNOWN_ERROR:
+                            errorMessage = "An unknown error occurred.";
+                            break;
+                    }
+                    
+                    gpsStatus.className = "status-message error";
+                    gpsStatus.innerHTML = icon + ' ' + errorMessage;
+                    
+                    detectBtn.disabled = false; 
+                    detectBtn.style.opacity = '1';
+                    
+                    submitBtn.disabled = true; 
+                    submitBtn.style.opacity = '0.7';
+
+                    latitudeInput.value = "";
+                    longitudeInput.value = "";
+                });
+            } else {
+                gpsStatus.className = "status-message error";
+                gpsStatus.innerHTML = '<i class="fas fa-times-circle"></i> Geolocation not supported by this browser.';
+                
+                detectBtn.disabled = false; 
+                detectBtn.style.opacity = '1';
+                
+                submitBtn.disabled = true; 
+                submitBtn.style.opacity = '0.7';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.querySelector('form');
+            const submitBtn = document.querySelector('.submit-btn');
+            
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.7';
+
+            form.addEventListener('submit', function(e) {
+                const latitude = document.getElementById('latitude').value;
+                const longitude = document.getElementById('longitude').value;
+                
+                if (!latitude || !longitude) {
+                    e.preventDefault();
+                    document.getElementById("gps-status").className = "status-message error";
+                    document.getElementById("gps-status").innerHTML = '<i class="fas fa-exclamation-triangle"></i> Please detect your location before submitting.';
+                    document.getElementById("gps-status").style.display = 'block'; 
+                    return false;
+                }
+                
+                submitBtn.innerHTML = '<span class="loading-spinner"></span>Getting Forecast...';
+                submitBtn.disabled = true;
+                submitBtn.style.opacity = '0.7';
+            });
+
+            // Profile dropdown toggle logic
+            const profileIconBtn = document.querySelector('.profile-icon-btn');
+            const dropdownMenu = document.querySelector('.dropdown-menu');
+
+            if (profileIconBtn && dropdownMenu) {
+                profileIconBtn.addEventListener('click', function() {
+                    dropdownMenu.style.display = dropdownMenu.style.display === 'block' ? 'none' : 'block';
+                });
+
+                // Close the dropdown if the user clicks outside of it
+                window.addEventListener('click', function(event) {
+                    if (!profileIconBtn.contains(event.target) && !dropdownMenu.contains(event.target)) {
+                        dropdownMenu.style.display = 'none';
+                    }
+                });
+            }
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="profile-dropdown-container">
+            <button class="profile-icon-btn" title="User Options">
+                <i class="fas fa-user-circle"></i>
+            </button>
+            <div class="dropdown-menu">
+                <a href="{{ url_for('change_password') }}">Change Password</a>
+                <a href="{{ url_for('logout') }}">Logout</a>
+            </div>
+        </div>
+
+        <div class="header">
+            <h1><i class="fas fa-bug"></i> Pest Forecasting</h1>
+            <p>Advanced Agricultural Pest Risk Assessment System</p>
+        </div>
+        
+        <div class="form-container">
+            <form action="{{ url_for('predict') }}" method="POST">
+                <div class="form-group">
+                    <label for="crop">
+                        <i class="fas fa-seedling"></i>Crop Type
+                    </label>
+                    <select id="crop" name="crop" required>
+                        <option value="">Select your crop</option>
+                        <option value="Sugarcane">Sugarcane</option>
+                        <option value="Arhar/Tur">Arhar/Tur</option>
+                        <option value="Wheat">Wheat</option>
+                        <option value="Garlic">Garlic</option>
+                        <option value="Rice">Rice</option>
+                        <option value="Bajra">Bajra</option>
+                        <option value="Maize">Maize</option>
+                        <option value="Moong(Green Gram)">Moong (Green Gram)</option>
+                        <option value="Onion">Onion</option>
+                        <option value="Gram">Gram</option>
+                        <option value="Urad">Urad</option>
+                        <option value="Jowar">Jowar</option>
+                        <option value="Sunflower">Sunflower</option>
+                        <option value="Barley">Barley</option>
+                        <option value="Potato">Potato</option>
+                        <option value="Groundnut">Groundnut</option>
+                        <option value="Soyabean">Soyabean</option>
+                    </select>
+                </div>
+
+                <div class="location-section">
+                    <h3><i class="fas fa-map-marker-alt"></i>Location Detection</h3>
+                    <button type="button" class="detect-btn" onclick="getLocation()">
+                        <i class="fas fa-crosshairs"></i> Detect My Location
+                    </button>
+                    <div id="gps-status" class="status-message"></div>
+                    <div class="location-hint">
+                        <i class="fas fa-info-circle"></i>
+                        Click the button above to automatically detect your coordinates for accurate pest forecasting.
+                    </div>
+                    
+                    <input type="hidden" id="latitude" name="latitude" required>
+                    <input type="hidden" id="longitude" name="longitude" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="soil_type">
+                        <i class="fas fa-mountain"></i>Soil Type
+                    </label>
+                    <select id="soil_type" name="soil_type" required>
+                        <option value="">Select soil type</option>
+                        <option value="black soil">Black Soil</option>
+                        <option value="red soil">Red Soil</option>
+                        <option value="clay">Clay</option>
+                        <option value="alluvial soil">Alluvial Soil</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="submit-btn">
+                    <i class="fas fa-chart-line"></i> Get Pest Risk Forecast
+                </button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
