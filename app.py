@@ -12,6 +12,10 @@ from dotenv import load_dotenv
 import requests
 import random # For simulating ML predictions and average rainfall
 from openai import OpenAI # Add this import for OpenAI
+import os
+
+port = int(os.environ.get("PORT", 5000))  # fallback to 5000 for local dev
+app.run(host="0.0.0.0", port=port)
 
 load_dotenv()
 
